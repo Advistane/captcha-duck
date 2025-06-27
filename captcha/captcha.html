@@ -1,52 +1,565 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Joel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Impossible Captcha</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            cursor: none;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
-  <style type="text/css">
-    html,
-    body {
-      background: pink;
-      margin: 0;
-      padding: 0;
-      font-family: sans-serif;
-    }
+        .ghost-cursor {
+            position: absolute;
+            top: -12.5px;
+            left: -12.5px;
+            width: 25px;
+            height: 25px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.1s ease-out;
+            box-shadow: 0 0 15px #00ff00, 0 0 25px #00ff00;
+        }
 
-    #captcha-container {
-      background: white;
-      width: 390px;
-      height: 300px;
-    }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: auto;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
 
-    /* Your style here... */
-  </style>
+        .game-box {
+            border: 4px solid #444;
+            background-color: #0d0d0d;
+            padding: 1rem;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+            text-align: center;
+        }
+
+        .word-container {
+            height: 300px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            overflow-y: auto;
+            position: relative;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .word {
+            padding: 8px 12px;
+            background-color: #333;
+            border: 2px solid #555;
+            border-radius: 8px;
+            cursor: none;
+            transition: all 0.1s ease;
+            font-size: 1.1rem;
+            user-select: none;
+        }
+
+        .word:hover {
+            background-color: #00ff00;
+            color: #000;
+            transform: scale(1.1);
+        }
+
+        .duck {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: yellow;
+            border-radius: 50% 50% 50% 0;
+            cursor: none;
+            transition: all 0.3s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .duck::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background-color: black;
+            border-radius: 50%;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+        }
+
+        .duck::after {
+            content: '';
+            width: 15px;
+            height: 8px;
+            background-color: orange;
+            position: absolute;
+            right: -8px;
+            top: 20px;
+            border-radius: 0 50% 50% 0;
+        }
+
+        @keyframes shake-mild {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(-2px);
+            }
+            75% {
+                transform: translateX(2px);
+            }
+        }
+
+        @keyframes shake-hard {
+            0%, 100% {
+                transform: translate(0, 0);
+            }
+            20% {
+                transform: translate(-5px, 3px);
+            }
+            40% {
+                transform: translate(3px, -4px);
+            }
+            60% {
+                transform: translate(-4px, 5px);
+            }
+            80% {
+                transform: translate(5px, -3px);
+            }
+        }
+
+        .shake-mild {
+            animation: shake-mild 0.2s linear infinite;
+        }
+
+        .shake-hard {
+            animation: shake-hard 0.1s linear infinite;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .fake-chrome-error {
+            background-color: #f1f1f1;
+            color: #333;
+            font-family: sans-serif;
+        }
+
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 1.5rem !important;
+            }
+
+            .game-box p, .game-box div {
+                font-size: 0.9rem;
+            }
+
+            #duck-phase h2 {
+                font-size: 1.25rem;
+                padding: 0 0.5rem;
+            }
+
+            .word {
+                font-size: 1rem;
+                padding: 6px 10px;
+            }
+
+            .word-container {
+                gap: 8px;
+            }
+
+            .modal-overlay h2 {
+                font-size: 2rem;
+            }
+
+            .modal-overlay p {
+                font-size: 1rem;
+            }
+        }
+
+        @media (pointer: coarse) {
+            .ghost-cursor {
+                display: none;
+            }
+
+            body, .word, .duck {
+                cursor: default;
+            }
+        }
+    </style>
 </head>
+<body class="bg-gray-900 text-gray-100">
 
-<body>
-  <div id="captcha-container">
-    <!-- Add your CAPTCHA here: -->
-    Hello world!
+<div id="ghost-cursor" class="ghost-cursor"></div>
 
-    <!-- We've added a sample button. Feel free to remove it: -->
-    <button id="solve">
-      Solve!
+<div class="container">
+    <div id="game-container" class="game-box">
+        <h1 class="text-3xl mb-2 font-bold text-green-400">Prove You're Human</h1>
+        <p>Click the word: <span id="target-word" class="text-yellow-400">"corn"</span></p>
+
+        <div class="flex justify-between items-center mb-2 text-sm sm:text-base">
+            <div>Timer: <span id="timer" class="text-red-500">15</span>s</div>
+            <div>Attempt: #<span id="attempt-counter">1</span></div>
+        </div>
+
+        <div id="word-phase">
+            <div id="word-container" class="word-container">
+            </div>
+        </div>
+
+        <div id="duck-phase" class="hidden relative w-full bg-blue-400 border-4 border-blue-600 rounded-lg"
+             style="height: 220px;">
+            <h2 class="text-2xl text-black mt-4">Click the duck <span id="duck-clicks-left" class="text-white">20</span>
+                times!</h2>
+            <div id="duck" class="duck"></div>
+        </div>
+    </div>
+</div>
+
+<div id="error-timeout" class="modal-overlay hidden">
+    <div class="spinner mb-4"></div>
+    <h2 class="text-4xl">Server Timeout</h2>
+    <p class="text-xl mt-2">Your session may have expired. Please wait...</p>
+</div>
+
+<div id="error-denied" class="modal-overlay hidden">
+    <h2 class="text-6xl text-red-600">403</h2>
+    <p class="text-3xl mt-2">Access Denied</p>
+    <button onclick="restartAttempt()" class="mt-8 px-6 py-3 bg-red-600 text-white rounded-lg text-xl">Try Again
     </button>
-  </div>
+</div>
 
-  <script type="text/javascript">
-    (function(window, document){
-      // This is how you tell the parent window that the CAPTCHA was successful.
-      function captchaSuccess() {
-        window.top.postMessage("success", '*');
-      }
+<div id="error-crash" class="modal-overlay fake-chrome-error hidden">
+    <div class="text-6xl mb-4">:(</div>
+    <h2 class="text-3xl">Aw, Snap!</h2>
+    <p class="text-lg mt-2">Something went wrong while displaying this webpage.</p>
+    <button onclick="restartAttempt()" class="mt-8 px-6 py-3 bg-blue-500 text-white rounded-lg">Retry</button>
+</div>
 
-      // Your CAPTCHA code goes here, we've added a simple example below:
-      document.getElementById('solve')
-           .addEventListener('click', () => captchaSuccess());
+<div id="game-over-timeout" class="modal-overlay hidden">
+    <h2 class="text-4xl text-red-500">Time's Up!</h2>
+    <p id="game-over-text" class="text-xl mt-2"></p>
+    <button onclick="location.reload()" class="mt-8 px-6 py-3 bg-blue-500 text-white rounded-lg">Restart</button>
+</div>
 
-    })(window, document);
-  </script>
+<div id="success-overlay" class="modal-overlay hidden">
+    <h2 class="text-4xl text-green-400">QUACK-TASTIC!</h2>
+    <p class="text-xl mt-2">You proved you're human... or a very determined duck hunter.</p>
+    <button onclick="location.reload()" class="mt-8 px-6 py-3 bg-green-500 text-white rounded-lg">Play Again</button>
+</div>
+
+<script>
+	const ghostCursor = document.getElementById('ghost-cursor');
+	const gameContainer = document.getElementById('game-container');
+	const wordContainer = document.getElementById('word-container');
+	const timerEl = document.getElementById('timer');
+	const attemptCounterEl = document.getElementById('attempt-counter');
+	const targetWordEl = document.getElementById('target-word');
+	const wordPhaseEl = document.getElementById('word-phase');
+	const duckPhaseEl = document.getElementById('duck-phase');
+	const duck = document.getElementById('duck');
+	const duckClicksLeftEl = document.getElementById('duck-clicks-left');
+	const gameOverOverlay = document.getElementById('game-over-timeout');
+	const gameOverText = document.getElementById('game-over-text');
+	const successOverlay = document.getElementById('success-overlay');
+	const mainInstructionEl = document.querySelector('#game-container > p');
+
+
+	const errorOverlays = {
+		timeout: document.getElementById('error-timeout'),
+		denied: document.getElementById('error-denied'),
+		crash: document.getElementById('error-crash')
+	};
+
+	let gameState = {
+		attempts: 1,
+		failures: 0,
+		timer: 15,
+		timerInterval: null,
+		targetWord: "corn",
+		phase: 'word',
+		duckClicks: 20,
+		isGameOver: false
+	};
+
+	let cursorState = {
+		real: {x: 0, y: 0},
+		ghost: {x: 0, y: 0},
+		lag: 0.1,
+		jitter: 0,
+	};
+
+	const wordList = [
+		"cloud", "grape", "plant", "chair", "house", "river", "horse", "light",
+		"bread", "storm", "music", "earth", "watch", "stone", "train", "fruit",
+		"ocean", "north", "glass", "dream", "field", "sound", "power", "queen"
+	];
+
+	function captchaSuccess() {
+		window.top.postMessage("success", '*');
+	}
+
+	function generateWords() {
+		wordContainer.innerHTML = '';
+		const words = new Set();
+		words.add(gameState.targetWord);
+
+		const wordCount = window.innerWidth < 640 ? 20 : 30;
+
+		while (words.size < wordCount) {
+			const randomWord = wordList[Math.floor(Math.random() * wordList.length)];
+			words.add(randomWord);
+		}
+
+		const shuffledWords = Array.from(words).sort(() => 0.5 - Math.random());
+		shuffledWords.forEach(word => {
+			const wordEl = document.createElement('div');
+			wordEl.textContent = word;
+			wordEl.classList.add('word');
+			if (word === gameState.targetWord) {
+				wordEl.dataset.correct = "true";
+			}
+			wordEl.addEventListener('click', handleWordClick);
+			wordContainer.appendChild(wordEl);
+		});
+	}
+
+	function handleWordClick(event) {
+		if (gameState.phase !== 'word' || gameState.isGameOver) return;
+
+		if (event.target.dataset.correct === "true") {
+			triggerFakeError();
+		} else {
+			gameContainer.classList.add('shake-mild');
+			setTimeout(() => gameContainer.classList.remove('shake-mild'), 200);
+		}
+	}
+
+	function triggerFakeError() {
+		clearInterval(gameState.timerInterval);
+		gameState.failures++;
+
+		const errorTypes = Object.keys(errorOverlays);
+		const randomError = errorTypes[Math.floor(Math.random() * errorTypes.length)];
+
+		errorOverlays[randomError].classList.remove('hidden');
+
+		if (randomError === 'timeout') {
+			setTimeout(() => {
+				errorOverlays.timeout.classList.add('hidden');
+				restartAttempt();
+			}, 3000);
+		}
+	}
+
+	function restartAttempt() {
+		if (gameState.isGameOver) return;
+		Object.values(errorOverlays).forEach(el => el.classList.add('hidden'));
+
+		if (gameState.failures >= 2 + Math.floor(Math.random() * 2)) {
+			startDuckPhase();
+			return;
+		}
+
+		gameState.attempts++;
+		attemptCounterEl.textContent = gameState.attempts;
+
+		cursorState.lag += 0.05;
+		cursorState.jitter += 1;
+
+		resetTimer();
+		generateWords();
+		startTimer();
+	}
+
+	function startDuckPhase() {
+		gameState.phase = 'duck';
+		wordPhaseEl.classList.add('hidden');
+		mainInstructionEl.innerHTML = 'Quick, click the duck!';
+		duckPhaseEl.classList.remove('hidden');
+		document.body.style.backgroundColor = '#006994';
+
+		cursorState.lag = 0.2;
+		cursorState.jitter = 5;
+
+		moveDuck();
+		resetTimer();
+		startTimer();
+	}
+
+	function startTimer() {
+		clearInterval(gameState.timerInterval);
+		gameState.timerInterval = setInterval(() => {
+			if (gameState.isGameOver) {
+				clearInterval(gameState.timerInterval);
+				return;
+			}
+			gameState.timer--;
+			timerEl.textContent = gameState.timer;
+
+			if (gameState.phase === 'word') {
+				if (gameState.timer < 10) wordContainer.classList.add('shake-mild');
+				if (gameState.timer < 5) {
+					wordContainer.classList.remove('shake-mild');
+					wordContainer.classList.add('shake-hard');
+				}
+			}
+
+			if (gameState.timer <= 0) {
+				handleTimeout();
+			}
+		}, 1000);
+	}
+
+	function resetTimer() {
+		clearInterval(gameState.timerInterval);
+		gameState.timer = 15;
+		timerEl.textContent = gameState.timer;
+		wordContainer.className = 'word-container';
+	}
+
+	function handleTimeout() {
+		if (gameState.isGameOver) return;
+		gameState.isGameOver = true;
+		clearInterval(gameState.timerInterval);
+
+		if (gameState.phase === 'duck') {
+			gameOverText.textContent = "The duck escaped! So close...";
+		} else {
+			gameOverText.textContent = "You weren't fast enough.";
+		}
+		gameOverOverlay.classList.remove('hidden');
+	}
+
+	function moveDuck() {
+		const containerRect = duckPhaseEl.getBoundingClientRect();
+		const duckSize = 50;
+		const newX = Math.random() * (containerRect.width - duckSize);
+		const newY = Math.random() * (containerRect.height - duckSize);
+		duck.style.left = `${newX}px`;
+		duck.style.top = `${newY}px`;
+	}
+
+	duck.addEventListener('click', () => {
+		if (gameState.phase !== 'duck' || gameState.isGameOver) return;
+
+		gameState.duckClicks--;
+		duckClicksLeftEl.textContent = gameState.duckClicks;
+
+		try {
+			const quack = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU' + Array(50).join('123'));
+			quack.play();
+		} catch (e) {
+			console.error("Audio playback failed:", e);
+		}
+
+		gameContainer.classList.add('shake-hard');
+		setTimeout(() => gameContainer.classList.remove('shake-hard'), 150);
+
+		if (gameState.duckClicks <= 0) {
+			if (gameState.isGameOver) return;
+			gameState.isGameOver = true;
+			clearInterval(gameState.timerInterval);
+			duckClicksLeftEl.textContent = "0";
+			captchaSuccess();
+		} else {
+			const moveInterval = Math.max(50, 400 - (20 - gameState.duckClicks) * 15);
+			setTimeout(moveDuck, moveInterval);
+		}
+	});
+
+	function updateGhostCursor() {
+		if (!gameState.isGameOver) {
+			cursorState.ghost.x += (cursorState.real.x - cursorState.ghost.x) * cursorState.lag;
+			cursorState.ghost.y += (cursorState.real.y - cursorState.ghost.y) * cursorState.lag;
+
+			const jitterX = (Math.random() - 0.5) * cursorState.jitter;
+			const jitterY = (Math.random() - 0.5) * cursorState.jitter;
+
+			ghostCursor.style.transform = `translate3d(${cursorState.ghost.x + jitterX}px, ${cursorState.ghost.y + jitterY}px, 0)`;
+		}
+		requestAnimationFrame(updateGhostCursor);
+	}
+
+	function updateMousePosition(clientX, clientY) {
+		cursorState.real.x = clientX;
+		cursorState.real.y = clientY;
+	}
+
+	window.addEventListener('mousemove', e => updateMousePosition(e.clientX, e.clientY));
+
+	window.addEventListener('touchstart', e => {
+		const touch = e.touches[0];
+		updateMousePosition(touch.clientX, touch.clientY);
+	}, {passive: true});
+
+	window.addEventListener('touchmove', e => {
+		const touch = e.touches[0];
+		updateMousePosition(touch.clientX, touch.clientY);
+	}, {passive: true});
+
+	function init() {
+		targetWordEl.textContent = `"${gameState.targetWord}"`;
+		generateWords();
+		startTimer();
+		requestAnimationFrame(updateGhostCursor);
+	}
+
+	init();
+</script>
 </body>
 </html>

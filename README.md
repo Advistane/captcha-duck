@@ -90,3 +90,7 @@ Add a publicly viewable demo for your CAPTCHA by enabling GitHub Pages in your r
 
 ## Further help
 Drop into the Kitboga discord server, and check out the #code-jam channel. Please don't ask questions via email, as we might not see them before the deadline.
+
+
+## Permission to Use
+I (Advistane) give permission to "happylittlecoffeebean" to use this as their submission.
